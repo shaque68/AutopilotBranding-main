@@ -208,14 +208,14 @@ try
 	}
 
 	# STEP 2B: Stop Start menu from opening on first logon
-	& reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v StartShownOnUpgrade /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
+		#& reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v StartShownOnUpgrade /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
 
 	# STEP 2C: Hide "Learn more about this picture" from the desktop (so wallpaper will work)
-	& reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{2cc5ca98-6485-489a-920e-b3e88a6ccce3}" /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
+		#& reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{2cc5ca98-6485-489a-920e-b3e88a6ccce3}" /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
 
 	# STEP 2D: Disable Windows Spotlight as per https://github.com/mtniehaus/AutopilotBranding/issues/13#issuecomment-2449224828 (so wallpaper will work)
-	Log "Disabling Windows Spotlight for Desktop"
-	& reg.exe add "HKLM\TempUser\Software\Policies\Microsoft\Windows\CloudContent" /v DisableSpotlightCollectionOnDesktop /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
+		#Log "Disabling Windows Spotlight for Desktop"
+		#& reg.exe add "HKLM\TempUser\Software\Policies\Microsoft\Windows\CloudContent" /v DisableSpotlightCollectionOnDesktop /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
 
 	# STEP 3: Left Align Start Button in the default user profile, users can change it if they want
 	if ($config.Config.SkipLeftAlignStart -ine "true") {
@@ -556,8 +556,8 @@ try
 	}
 
 	# STEP 16: Disable network location fly-out
-	Log "Turning off network location fly-out"
-	& reg.exe add "HKLM\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" /f /reg:64 | Out-Null
+		#Log "Turning off network location fly-out"
+		#& reg.exe add "HKLM\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" /f /reg:64 | Out-Null
 
 	# STEP 17: Remove the registry keys for Dev Home and Outlook New
 	# This is a workaround for the issue where the Dev Home and Outlook New apps are installed by default
