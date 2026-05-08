@@ -2,22 +2,22 @@
   <!-- Flags to control what should be skipped -->
   <SkipUEV>true</SkipUEV>
   <SkipLeftAlignStart>true</SkipLeftAlignStart>
-  <SkipUpdates>false</SkipUpdates>
-  <SkipWinGet>false</SkipWinGet>
-  <SkipHideWidgets>false</SkipHideWidgets>
-  <SkipStartLayout>false</SkipStartLayout>
+  <SkipUpdates>true</SkipUpdates>
+  <SkipWinGet>true</SkipWinGet>
+  <SkipHideWidgets>true</SkipHideWidgets>
+  <SkipStartLayout>true</SkipStartLayout>
   <SkipTaskbarLayout>false</SkipTaskbarLayout>
-  <SkipTheme>false</SkipTheme>
-  <SkipLockScreen>false</SkipLockScreen>
-  <SkipAutoinstallingApps>false</SkipAutoinstallingApps>
-  <SkipShowDesktopFaster>false</SkipShowDesktopFaster>
-  <SkipAPv2>false</SkipAPv2>
-  <SkipEdgeUpdate>false</SkipEdgeUpdate>
+  <SkipTheme>true</SkipTheme>
+  <SkipLockScreen>true</SkipLockScreen>
+  <SkipAutoinstallingApps>true</SkipAutoinstallingApps>
+  <SkipShowDesktopFaster>true</SkipShowDesktopFaster>
+  <SkipAPv2>true</SkipAPv2>
+  <SkipEdgeUpdate>true</SkipEdgeUpdate>
   <SkipRemoveCopilotPWA>true</SkipRemoveCopilotPWA>
   <SkipEnterpriseGVLK>true</SkipEnterpriseGVLK>
    <!-- Only set 'SkipDisableWidgets' to false if you want to completely disable Widgets-->
   <SkipDisableWidgets>true</SkipDisableWidgets> 
-  <SkipChromeConfig>false</SkipChromeConfig>
+  <SkipChromeConfig>true</SkipChromeConfig>
   
   <!-- Settings for various items-->
   <TimeZone></TimeZone>
