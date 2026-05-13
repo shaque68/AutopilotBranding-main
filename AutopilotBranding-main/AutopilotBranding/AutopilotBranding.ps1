@@ -282,18 +282,18 @@ try
 	}
 
 	# STEP 6: Remove specified provisioned apps if they exist
-	Log "Removing specified in-box provisioned apps"
-	$apps = Get-AppxProvisionedPackage -online
-	$config.Config.RemoveApps.App | ForEach-Object {
-		$current = $_
-		$apps | Where-Object { $_.DisplayName -eq $current } | ForEach-Object {
-			try {
-				Log "Removing provisioned app: $current"
-				$_ | Remove-AppxProvisionedPackage -Online -AllUsers -ErrorAction SilentlyContinue | Out-Null
-			}
-			catch { }
-		}
-	}
+	#Log "Removing specified in-box provisioned apps"
+	#$apps = Get-AppxProvisionedPackage -online
+	#$config.Config.RemoveApps.App | ForEach-Object {
+		#$current = $_
+		#$apps | Where-Object { $_.DisplayName -eq $current } | ForEach-Object {
+			#try {
+				#Log "Removing provisioned app: $current"
+				#$_ | Remove-AppxProvisionedPackage -Online -AllUsers -ErrorAction SilentlyContinue | Out-Null
+			#}
+			#catch { }
+		#}
+	#}
 
 	# STEP 6A: Prevent Copilot PWA from being installed
 	if ($config.Config.SkipRemoveCopilotPWA -ine "true") {
@@ -351,15 +351,15 @@ try
 	}
 
 	# STEP 8: Don't let Edge create a desktop shortcut (roams to OneDrive, creates mess)
-	Log "Turning off (old) Edge desktop shortcut"
-	& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v DisableEdgeDesktopShortcutCreation /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
-	Log "Turning off Edge desktop icon"
-	& reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "CreateDesktopShortcutDefault" /t REG_DWORD /d 0 /f /reg:64 2>&1 | Out-Null
-	& reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "RemoveDesktopShortcutDefault" /t REG_DWORD /d 2 /f /reg:64 2>&1 | Out-Null
-	if (Test-Path "C:\Users\Public\Desktop\Microsoft Edge.lnk") {
-		Log "Removing Edge desktop shortcut"
-		Remove-Item "C:\Users\Public\Desktop\Microsoft Edge.lnk" -Force
-	}
+	#Log "Turning off (old) Edge desktop shortcut"
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v DisableEdgeDesktopShortcutCreation /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
+	#Log "Turning off Edge desktop icon"
+	#& reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "CreateDesktopShortcutDefault" /t REG_DWORD /d 0 /f /reg:64 2>&1 | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "RemoveDesktopShortcutDefault" /t REG_DWORD /d 2 /f /reg:64 2>&1 | Out-Null
+	#if (Test-Path "C:\Users\Public\Desktop\Microsoft Edge.lnk") {
+		#Log "Removing Edge desktop shortcut"
+		#Remove-Item "C:\Users\Public\Desktop\Microsoft Edge.lnk" -Force
+	#}
 
 	# STEP 8A: Attempt to Donwload and install Latest Edge for Business MSI from Evergreen URL
 	if ($config.Config.SkipEdgeUpdate -ine "true") {
@@ -395,165 +395,165 @@ try
 	}
 
 	# STEP 8B: Clean up any OEM-added bookmarks from the default user profile
-	$bookmarks = "C:\Users\Default\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks"
-	if (Test-Path $bookmarks) {
-		Log "Removing Edge bookmarks folder from default profile"
-		Remove-Item $bookmarks -Force
-	}
-	$Bookmarksregpath = "HKLM:\SOFTWARE\Microsoft\MicrosoftEdge\Main\FavoriteBarItems"
-	if (test-path $Bookmarksregpath){
-	Remove-Item -path $Bookmarksregpath -Recurse -Force
-	Log "OEM Edge Bookmarks were detected and removed successfully"
-	}else{
-	Log "No OEM Edge Booksmarks were detected"
-	}
+	#$bookmarks = "C:\Users\Default\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks"
+	#if (Test-Path $bookmarks) {
+		#Log "Removing Edge bookmarks folder from default profile"
+		#Remove-Item $bookmarks -Force
+	#}
+	#$Bookmarksregpath = "HKLM:\SOFTWARE\Microsoft\MicrosoftEdge\Main\FavoriteBarItems"
+	#if (test-path $Bookmarksregpath){
+	#Remove-Item -path $Bookmarksregpath -Recurse -Force
+	#Log "OEM Edge Bookmarks were detected and removed successfully"
+	#}else{
+	#Log "No OEM Edge Booksmarks were detected"
+	#}
 
 
 
 	
 
 	# STEP 9: Add language packs
-	if (Test-Path "$($installFolder)LPs") {
-		Get-ChildItem "$($installFolder)LPs" -Filter *.cab | ForEach-Object {
-			Log "Adding language pack: $($_.FullName)"
-			Add-WindowsPackage -Online -NoRestart -PackagePath $_.FullName
-		}
-	}
+	#if (Test-Path "$($installFolder)LPs") {
+		#Get-ChildItem "$($installFolder)LPs" -Filter *.cab | ForEach-Object {
+			#Log "Adding language pack: $($_.FullName)"
+			#Add-WindowsPackage -Online -NoRestart -PackagePath $_.FullName
+		#}
+	#}
 
 	# STEP 10: Change language
-	if ($config.Config.Language) {
-		Log "Configuring language using: $($config.Config.Language)"
-		& $env:SystemRoot\System32\control.exe "intl.cpl,,/f:`"$($installFolder)$($config.Config.Language)`""
-	}
+	#if ($config.Config.Language) {
+		#Log "Configuring language using: $($config.Config.Language)"
+		#& $env:SystemRoot\System32\control.exe "intl.cpl,,/f:`"$($installFolder)$($config.Config.Language)`""
+	#}
 
 	# STEP 11: Add features on demand, Disable Optional Features, Remove Windows Capabilities
-	$currentWU = (Get-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction Ignore).UseWuServer
-	if ($currentWU -eq 1) {
-		Log "Turning off WSUS"
-		Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"  -Name "UseWuServer" -Value 0
-		Restart-Service wuauserv
-	}
+	#$currentWU = (Get-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction Ignore).UseWuServer
+	#if ($currentWU -eq 1) {
+	#	Log "Turning off WSUS"
+	#	Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"  -Name "UseWuServer" -Value 0
+	#	Restart-Service wuauserv
+	#}
 
 	# Step 11A: Disable Optional features
-	if ($config.Config.DisableOptionalFeatures.Feature.Count -gt 0) {
-		try {
-			$EnabledOptionalFeatures = Get-WindowsOptionalFeature -Online | Where-Object { $_.State -eq "Enabled" }
-			foreach ($EnabledFeature in $EnabledOptionalFeatures) {
-				if ($config.Config.DisableOptionalFeatures.Feature -contains $EnabledFeature.FeatureName) {
-					Log "Disabling Optional Feature:  $($EnabledFeature.FeatureName)"
-					try {
-						Disable-WindowsOptionalFeature -Online -FeatureName $EnabledFeature.FeatureName -NoRestart | Out-Null
-					}
-					catch {}
-				}
-			}
-			}
-		catch {
-			Log "Unexpected error querying Windows optional features: $_"
-		}
-	}
+	#if ($config.Config.DisableOptionalFeatures.Feature.Count -gt 0) {
+	#	try {
+	#		$EnabledOptionalFeatures = Get-WindowsOptionalFeature -Online | Where-Object { $_.State -eq "Enabled" }
+	#		foreach ($EnabledFeature in $EnabledOptionalFeatures) {
+	#			if ($config.Config.DisableOptionalFeatures.Feature -contains $EnabledFeature.FeatureName) {
+	#				Log "Disabling Optional Feature:  $($EnabledFeature.FeatureName)"
+	#				try {
+	#					Disable-WindowsOptionalFeature -Online -FeatureName $EnabledFeature.FeatureName -NoRestart | Out-Null
+	#				}
+	#				catch {}
+	#			}
+	#		}
+	#		}
+	#	catch {
+	#		Log "Unexpected error querying Windows optional features: $_"
+	#	}
+	#}
 
 	# Step 11B: Remove Windows Capabilities
-	if ($config.Config.RemoveCapability.Capability.Count -gt 0) {
-		try {
-			$InstalledCapabilities = Get-WindowsCapability -Online | Where-Object { $_.State -eq "Installed" }
-			foreach ($InstalledCapability in $InstalledCapabilities) {
-				if ($config.Config.RemoveCapability.Capability -contains $InstalledCapability.Name.Split("~")[0]) {
-					Log "Removing Windows Capability:  $($InstalledCapability.Name)"
-					try {
-						Remove-WindowsCapability -Online -Name $InstalledCapability.Name  | Out-Null
-					}
-					catch {
-						Log "  Unable to remove Windows capability: $_"
-					}
-				}
-			}
-		} catch {
-			Log "Unexpected error querying Windows capabilities: $_"
-		}
-	}
+	#if ($config.Config.RemoveCapability.Capability.Count -gt 0) {
+	#	try {
+	#		$InstalledCapabilities = Get-WindowsCapability -Online | Where-Object { $_.State -eq "Installed" }
+	#		foreach ($InstalledCapability in $InstalledCapabilities) {
+	#			if ($config.Config.RemoveCapability.Capability -contains $InstalledCapability.Name.Split("~")[0]) {
+	#				Log "Removing Windows Capability:  $($InstalledCapability.Name)"
+	#				try {
+	#					Remove-WindowsCapability -Online -Name $InstalledCapability.Name  | Out-Null
+	#				}
+	#				catch {
+	#					Log "  Unable to remove Windows capability: $_"
+	#				}
+	#			}
+	#		}
+	#	} catch {
+	#		Log "Unexpected error querying Windows capabilities: $_"
+	#	}
+	#}
 
 	# Step 11C: Add features on demand
-	if ($config.Config.AddFeatures.Feature.Count -gt 0) {
-		$config.Config.AddFeatures.Feature | ForEach-Object {
-			Log "Adding Windows feature: $_"
-			try {
-				$result = Add-WindowsCapability -Online -Name $_
-				if ($result.RestartNeeded) {
-					Log "  Feature $_ was installed but requires a restart"
-				}
-			}
-			catch {
-				Log "  Unable to add Windows capability: $_"
-			}
-		}
-	}
+	#if ($config.Config.AddFeatures.Feature.Count -gt 0) {
+	#	$config.Config.AddFeatures.Feature | ForEach-Object {
+	#		Log "Adding Windows feature: $_"
+	#		try {
+	#			$result = Add-WindowsCapability -Online -Name $_
+	#			if ($result.RestartNeeded) {
+	#				Log "  Feature $_ was installed but requires a restart"
+	#			}
+	#		}
+	#		catch {
+	#			Log "  Unable to add Windows capability: $_"
+	#		}
+	#	}
+	#}
 
-	if ($currentWU -eq 1) {
-		Log "Turning on WSUS"
-		Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"  -Name "UseWuServer" -Value 1
-		Restart-Service wuauserv
-	}
+	#if ($currentWU -eq 1) {
+	#	Log "Turning on WSUS"
+	#	Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"  -Name "UseWuServer" -Value 1
+	#	Restart-Service wuauserv
+	#}
 
 	# STEP 12: Customize default apps
-	if ($config.Config.DefaultApps) {
-		Log "Setting default apps: $($config.Config.DefaultApps)"
-		& Dism.exe /Online /Import-DefaultAppAssociations:`"$($installFolder)$($config.Config.DefaultApps)`"
-	}
+	#if ($config.Config.DefaultApps) {
+	#	Log "Setting default apps: $($config.Config.DefaultApps)"
+	#	& Dism.exe /Online /Import-DefaultAppAssociations:`"$($installFolder)$($config.Config.DefaultApps)`"
+	#}
 
 	# STEP 13: Set registered user and organization
-	if ($config.Config.RegisteredOwner) {
-		Log "Configuring registered user information"
-		& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v RegisteredOwner /t REG_SZ /d "$($config.Config.RegisteredOwner)" /f /reg:64 2>&1 | Out-Null
-		& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v RegisteredOrganization /t REG_SZ /d "$($config.Config.RegisteredOrganization)" /f /reg:64 2>&1 | Out-Null
-	}
+	#if ($config.Config.RegisteredOwner) {
+	#	Log "Configuring registered user information"
+	#	& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v RegisteredOwner /t REG_SZ /d "$($config.Config.RegisteredOwner)" /f /reg:64 2>&1 | Out-Null
+	#	& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v RegisteredOrganization /t REG_SZ /d "$($config.Config.RegisteredOrganization)" /f /reg:64 2>&1 | Out-Null
+	#}
 
 	# STEP 14: Configure OEM branding info
 	
-	if ($config.Config.OEMInfo) {
-		Log "Configuring OEM branding info"
-		$OEMpath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
+	#if ($config.Config.OEMInfo) {
+	#	Log "Configuring OEM branding info"
+	#	$OEMpath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
 		
-		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Manufacturer /t REG_SZ /d "$($config.Config.OEMInfo.Manufacturer)" /f /reg:64 2>&1 #| Out-Null
-		New-ItemProperty -Path $OEMpath -Name 'Manufacturer' -PropertyType String -Value $config.Config.OEMInfo.Manufacturer -Force | Out-Null
-		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Model /t REG_SZ /d "$($config.Config.OEMInfo.Model)" /f /reg:64 2>&1 #| Out-Null
-		New-ItemProperty -Path $OEMpath -Name 'Model' -PropertyType String -Value $config.Config.OEMInfo.Model -Force | Out-Null
-		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportPhone /t REG_SZ /d "$($config.Config.OEMInfo.SupportPhone)" /f /reg:64 2>&1 #| Out-Null
-		New-ItemProperty -Path $OEMpath -Name 'SupportPhone' -PropertyType String -Value $config.Config.OEMInfo.SupportPhone -Force | Out-Null
-		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportHours /t REG_SZ /d "$($config.Config.OEMInfo.SupportHours)" /f /reg:64 2>&1 #| Out-Null
-		New-ItemProperty -Path $OEMpath -Name 'SupportHours' -PropertyType String -Value $config.Config.OEMInfo.SupportHours -Force | Out-Null
-		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportURL /t REG_SZ /d "$($config.Config.OEMInfo.SupportURL)" /f /reg:64 2>&1 #| Out-Null
-		New-ItemProperty -Path $OEMpath -Name 'SupportURL' -PropertyType String -Value $config.Config.OEMInfo.SupportURL -Force | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Manufacturer /t REG_SZ /d "$($config.Config.OEMInfo.Manufacturer)" /f /reg:64 2>&1 #| Out-Null
+	#New-ItemProperty -Path $OEMpath -Name 'Manufacturer' -PropertyType String -Value $config.Config.OEMInfo.Manufacturer -Force | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Model /t REG_SZ /d "$($config.Config.OEMInfo.Model)" /f /reg:64 2>&1 #| Out-Null
+	#New-ItemProperty -Path $OEMpath -Name 'Model' -PropertyType String -Value $config.Config.OEMInfo.Model -Force | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportPhone /t REG_SZ /d "$($config.Config.OEMInfo.SupportPhone)" /f /reg:64 2>&1 #| Out-Null
+	#New-ItemProperty -Path $OEMpath -Name 'SupportPhone' -PropertyType String -Value $config.Config.OEMInfo.SupportPhone -Force | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportHours /t REG_SZ /d "$($config.Config.OEMInfo.SupportHours)" /f /reg:64 2>&1 #| Out-Null
+	#New-ItemProperty -Path $OEMpath -Name 'SupportHours' -PropertyType String -Value $config.Config.OEMInfo.SupportHours -Force | Out-Null
+	#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportURL /t REG_SZ /d "$($config.Config.OEMInfo.SupportURL)" /f /reg:64 2>&1 #| Out-Null
+	#New-ItemProperty -Path $OEMpath -Name 'SupportURL' -PropertyType String -Value $config.Config.OEMInfo.SupportURL -Force | Out-Null
 		
-	if (Test-Path "$installFolder\$($config.Config.OEMInfo.Logo)") { 
-		Log "BMP Logo Found copying.."
-    	Copy-Item "$installFolder\$($config.Config.OEMInfo.Logo)" "C:\Windows\$($config.Config.OEMInfo.Logo)" -Force 
-		New-ItemProperty -Path $OEMpath -Name 'Logo' -PropertyType String -Value $config.Config.OEMInfo.Logo -Force | Out-Null
-		}
+	#if (Test-Path "$installFolder\$($config.Config.OEMInfo.Logo)") { 
+	#	Log "BMP Logo Found copying.."
+    #	Copy-Item "$installFolder\$($config.Config.OEMInfo.Logo)" "C:\Windows\$($config.Config.OEMInfo.Logo)" -Force 
+	#	New-ItemProperty -Path $OEMpath -Name 'Logo' -PropertyType String -Value $config.Config.OEMInfo.Logo -Force | Out-Null
+	#	}
 		#Copy-Item "$installFolder\$($config.Config.OEMInfo.Logo)" "C:\Windows\$($config.Config.OEMInfo.Logo)" -Force
 		#& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Logo /t REG_SZ /d "C:\Windows\$($config.Config.OEMInfo.Logo)" /f /reg:64 2>&1 #| Out-Null
-	}
+	#}
 
 
 
 	# STEP 15A: Force Enterprise SKU
-	if ($config.Config.SkipEnterpriseGVLK -ine "true") {
-		Log "Forcing Enterprise SKU"
-		& changepk.exe /ProductKey NPPR9-FWDCX-D2C8J-H872K-2YT43
-	}
+	#if ($config.Config.SkipEnterpriseGVLK -ine "true") {
+	#	Log "Forcing Enterprise SKU"
+	#	& changepk.exe /ProductKey NPPR9-FWDCX-D2C8J-H872K-2YT43
+	#}
 
 	# STEP 15B: Enable UE-V
-	if ($config.Config.SkipUEV -ine "true") {
-		Log "Enabling UE-V"
-		Enable-UEV
-		Set-UevConfiguration -Computer -SettingsStoragePath "%OneDriveCommercial%\UEV" -SyncMethod External -DisableWaitForSyncOnLogon
-		Get-ChildItem "$($installFolder)UEV" -Filter *.xml | ForEach-Object {
-			Log "Registering template: $($_.FullName)"
-			Register-UevTemplate -Path $_.FullName
-		}
-	} else {
-		Log "Skipping UE-V"
-	}
+	#if ($config.Config.SkipUEV -ine "true") {
+	#	Log "Enabling UE-V"
+	#	Enable-UEV
+	#	Set-UevConfiguration -Computer -SettingsStoragePath "%OneDriveCommercial%\UEV" -SyncMethod External -DisableWaitForSyncOnLogon
+	#	Get-ChildItem "$($installFolder)UEV" -Filter *.xml | ForEach-Object {
+	#		Log "Registering template: $($_.FullName)"
+	#		Register-UevTemplate -Path $_.FullName
+	#	}
+	#} else {
+	#	Log "Skipping UE-V"
+	#}
 
 	# STEP 16: Disable network location fly-out
 		#Log "Turning off network location fly-out"
@@ -561,136 +561,136 @@ try
 
 	# STEP 17: Remove the registry keys for Dev Home and Outlook New
 	# This is a workaround for the issue where the Dev Home and Outlook New apps are installed by default
-	if ($config.Config.SkipAutoinstallingApps -ine "true") {
-		Log "Disabling Windows 11 Dev Home and Outlook New"
-		$DevHome = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\DevHomeUpdate"
-		$OutlookNew = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\OutlookUpdate"
-		if (Test-Path -Path $DevHome) {
-			Log "  Removing DevHome key"
-			Remove-Item -Path $DevHome -Force
-		}
-		if (Test-Path -Path $OutlookNew) {
-			Log "  Removing Outlook for Windows key"
-			Remove-Item -Path $OutlookNew -Force
-		}
-	} else {
-		Log "Skipping autoinstalling app logic"
-	}
+	#if ($config.Config.SkipAutoinstallingApps -ine "true") {
+	#	Log "Disabling Windows 11 Dev Home and Outlook New"
+	#	$DevHome = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\DevHomeUpdate"
+	#	$OutlookNew = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\OutlookUpdate"
+	#	if (Test-Path -Path $DevHome) {
+	#		Log "  Removing DevHome key"
+	#		Remove-Item -Path $DevHome -Force
+	#	}
+	#	if (Test-Path -Path $OutlookNew) {
+	#		Log "  Removing Outlook for Windows key"
+	#		Remove-Item -Path $OutlookNew -Force
+	#	}
+	#} else {
+	#	Log "Skipping autoinstalling app logic"
+	#}
 
 	# STEP 18: WinGet installs
-	if ($config.Config.SkipWinGet -ne 'true') {
+	#if ($config.Config.SkipWinGet -ne 'true') {
 		# Ensure NuGet provider before installing modules
-		Check-NuGetProvider 
+	#	Check-NuGetProvider 
 
 		#Log 'Installing WinGet.Client module'
-		Install-Module -Name Microsoft.WinGet.Client -Force -Scope AllUsers -Repository PSGallery | Out-Null
-		Log 'Installing Lastest Winget package and dependencies'
-		Repair-WinGetPackageManager -Force -Latest | Out-Null  #-Allusers not supported in System Context so was removed.
+	#	Install-Module -Name Microsoft.WinGet.Client -Force -Scope AllUsers -Repository PSGallery | Out-Null
+	#	Log 'Installing Lastest Winget package and dependencies'
+	#	Repair-WinGetPackageManager -Force -Latest | Out-Null  #-Allusers not supported in System Context so was removed.
 		
 		#Permalink for latest supported x64 version of vc_redist.x64
-		$VCppRedistributable_Url = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+	#	$VCppRedistributable_Url = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 		#set temporary install file path
-		$VCppRedistributable_Path = Join-Path $env:TEMP 'vc_redist.x64.exe'
+	#	$VCppRedistributable_Path = Join-Path $env:TEMP 'vc_redist.x64.exe'
 		
-		Invoke-WebRequest -uri $VCppRedistributable_Url -outfile $VCppRedistributable_Path -UseBasicParsing
-		Start-Process -FilePath $VCppRedistributable_Path -ArgumentList "/install", "/quiet", "/norestart" -Wait
+	#	Invoke-WebRequest -uri $VCppRedistributable_Url -outfile $VCppRedistributable_Path -UseBasicParsing
+	#	Start-Process -FilePath $VCppRedistributable_Path -ArgumentList "/install", "/quiet", "/norestart" -Wait
 		
 		#$wingetExe = (Get-ChildItem -Path 'C:\Program Files\WindowsApps' -Recurse -Filter 'winget.exe' -ErrorAction SilentlyContinue).FullName
 		#Look for Winget.exe in the C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_* Folder
-		$WinGetResolve = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe\winget.exe"
-		$wingetExe = $WinGetResolve[-1].Path
-		$wingetVer = & "$wingetExe" --version
-		Log "Winget version is: $wingetVer"
+	#	$WinGetResolve = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe\winget.exe"
+	#	$wingetExe = $WinGetResolve[-1].Path
+	#	$wingetVer = & "$wingetExe" --version
+	#	Log "Winget version is: $wingetVer"
 		
 		#Cleanup VCredistrib setup file
-		Remove-Item $VCppRedistributable_Path -Force
+	#	Remove-Item $VCppRedistributable_Path -Force
 		
-		foreach ($id in $config.Config.WinGetInstall.Id) {
-			Log "WinGet installing: $id"
-			try {
-				& "$wingetExe" install $id --silent --scope machine --accept-package-agreements --accept-source-agreements
-			}
-			catch {
-				Log "WinGet installing error: $_"
-			}
-		}
-		
-	} else {
-		Log 'Skipping WinGet installs'
-	}
+	#	foreach ($id in $config.Config.WinGetInstall.Id) {
+	#		Log "WinGet installing: $id"
+	#		try {
+	#			& "$wingetExe" install $id --silent --scope machine --accept-package-agreements --accept-source-agreements
+	#		}
+	#		catch {
+	#			Log "WinGet installing error: $_"
+	#		}
+	#	}
+	#	
+	#} else {
+	#	Log 'Skipping WinGet installs'
+	#}
 
 	# STEP 18A: Configure Chrome initial preferences (needs to happen after Chrome is installed but before a user logs in)
 	# See https://www.chromium.org/administrators/configuring-other-preferences/ for available preferences that can be set.
-	if ($config.Config.SkipChromeConfig -ine "true") {
-		Log "Copying Chrome initial_preferences file"
-		$dest = "C:\Program Files\Google\Chrome\Application"
-		if (-not (Test-Path $dest))
-		{
-			MkDir $dest -Force | Out-Null
-		}
-		Copy-Item "$PSScriptRoot\initial_preferences" "$dest\" -Force
-		if (Test-Path "C:\Users\Public\Desktop\Google Chrome.lnk") {
-			Log "Removing Chrome desktop shortcut"
-			Remove-Item "C:\Users\Public\Desktop\Google Chrome.lnk" -Force
-		}
-	}
+	#if ($config.Config.SkipChromeConfig -ine "true") {
+	#	Log "Copying Chrome initial_preferences file"
+	#	$dest = "C:\Program Files\Google\Chrome\Application"
+	#	if (-not (Test-Path $dest))
+	#	{
+	#		MkDir $dest -Force | Out-Null
+	#	}
+	#	Copy-Item "$PSScriptRoot\initial_preferences" "$dest\" -Force
+	#	if (Test-Path "C:\Users\Public\Desktop\Google Chrome.lnk") {
+	#		Log "Removing Chrome desktop shortcut"
+	#		Remove-Item "C:\Users\Public\Desktop\Google Chrome.lnk" -Force
+	#	}
+	#}
 
 	# STEP 19: Disable extra APv2 pages (too late to do anything about the EULA), see https://call4cloud.nl/autopilot-device-preparation-hide-privacy-settings/
-	if ($config.Config.SkipAPv2 -ine "true") {
-		$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE"
-		New-ItemProperty -Path $registryPath -Name "DisablePrivacyExperience" -Value 1 -PropertyType DWord -Force | Out-Null
-		New-ItemProperty -Path $registryPath -Name "DisableVoice" -Value 1 -PropertyType DWord -Force | Out-Null
-		New-ItemProperty -Path $registryPath -Name "PrivacyConsentStatus" -Value 1 -PropertyType DWord -Force | Out-Null
-		New-ItemProperty -Path $registryPath -Name "ProtectYourPC" -Value 3 -PropertyType DWord -Force | Out-Null
-		Log 'APv2 extra pages disabled'
-	} else {
-		Log 'Skipping APv2 tweaks'
-	}
+	#if ($config.Config.SkipAPv2 -ine "true") {
+	#	$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE"
+	#	New-ItemProperty -Path $registryPath -Name "DisablePrivacyExperience" -Value 1 -PropertyType DWord -Force | Out-Null
+	#	New-ItemProperty -Path $registryPath -Name "DisableVoice" -Value 1 -PropertyType DWord -Force | Out-Null
+	#	New-ItemProperty -Path $registryPath -Name "PrivacyConsentStatus" -Value 1 -PropertyType DWord -Force | Out-Null
+	#	New-ItemProperty -Path $registryPath -Name "ProtectYourPC" -Value 3 -PropertyType DWord -Force | Out-Null
+	#	Log 'APv2 extra pages disabled'
+	#} else {
+	#	Log 'Skipping APv2 tweaks'
+	#}
 
 	# CLEANUP: Unload default user registry
-	Log "Unloading Default user Registry"
-	[GC]::Collect()
-	reg.exe unload HKLM\TempUser | Out-Null
+	#Log "Unloading Default user Registry"
+	#[GC]::Collect()
+	#reg.exe unload HKLM\TempUser | Out-Null
 	
 	# STEP 20: Updates & Inbox-App script
-	if ($config.Config.SkipUpdates -ne 'true') {
-		try {
+	#if ($config.Config.SkipUpdates -ne 'true') {
+	#	try {
 
 			#Nuget v 2.8.5.201 is required to import mtniehaus's PS Gallery Script Update-InboxApp
-			$minrequired = [version]'2.8.5.201'
-			Check-NuGetProvider -MinimumVersion $minrequired
-		} catch {
-			Log "Error updating NuGet"
-		}
-		try {
-			Log 'Installing Update-InboxApp script'
-			Install-Script Update-InboxApp -Force | Out-Null
+	#		$minrequired = [version]'2.8.5.201'
+	#		Check-NuGetProvider -MinimumVersion $minrequired
+	#	} catch {
+	#		Log "Error updating NuGet"
+	#	}
+	#	try {
+	#		Log 'Installing Update-InboxApp script'
+	#		Install-Script Update-InboxApp -Force | Out-Null
 
-			Log 'Updating inbox apps'
+	#		Log 'Updating inbox apps'
 			# The path might not be set right to find this, so we'll hard-code the location
-			Get-AppxPackage -AllUsers | Select-Object -Unique PackageFamilyName | . "C:\Program Files\WindowsPowerShell\Scripts\Update-InboxApp.ps1" -Verbose
-		} catch {
-			Log "Error updating in-box apps: $_"
-		}
-		try {
-			Log 'Triggering Windows Update scan'
-			$ns = 'Root\cimv2\mdm\dmmap'
-			$class = 'MDM_EnterpriseModernAppManagement_AppManagement01'
-			Get-CimInstance -Namespace $ns -ClassName $class | Invoke-CimMethod -MethodName UpdateScanMethod
-		} catch {
-			Log "Error triggering Windows Update scan: $_"
-		}
-	} else {
-		Log 'Skipping updates'
-	}
+	#		Get-AppxPackage -AllUsers | Select-Object -Unique PackageFamilyName | . "C:\Program Files\WindowsPowerShell\Scripts\Update-InboxApp.ps1" -Verbose
+	#	} catch {
+	#		Log "Error updating in-box apps: $_"
+	#	}
+	#	try {
+	#		Log 'Triggering Windows Update scan'
+	#		$ns = 'Root\cimv2\mdm\dmmap'
+	#		$class = 'MDM_EnterpriseModernAppManagement_AppManagement01'
+	#		Get-CimInstance -Namespace $ns -ClassName $class | Invoke-CimMethod -MethodName UpdateScanMethod
+	#	} catch {
+	#		Log "Error triggering Windows Update scan: $_"
+	#	}
+	#} else {
+	#	Log 'Skipping updates'
+	#}
 
 	# STEP 21: Skip FSIA and turn off delayed desktop switch
-	if ($config.Config.SkipShowDesktopFaster -ine "true") {
-		Log "Skipping FSIA and turning off delayed desktop switch"
-		$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-		New-ItemProperty -Path $registryPath -Name "EnableFirstLogonAnimation" -Value 0 -PropertyType DWord -Force | Out-Null
-		New-ItemProperty -Path $registryPath -Name "DelayedDesktopSwitchTimeout" -Value 0 -PropertyType DWord -Force | Out-Null
-	}
+	#if ($config.Config.SkipShowDesktopFaster -ine "true") {
+	#	Log "Skipping FSIA and turning off delayed desktop switch"
+	#	$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+	#	New-ItemProperty -Path $registryPath -Name "EnableFirstLogonAnimation" -Value 0 -PropertyType DWord -Force | Out-Null
+	#	New-ItemProperty -Path $registryPath -Name "DelayedDesktopSwitchTimeout" -Value 0 -PropertyType DWord -Force | Out-Null
+	#}
 } catch {
 	Log "Unhandled exception: $_"
 } finally {
