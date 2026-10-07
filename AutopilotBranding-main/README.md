@@ -1,57 +1,112 @@
 # Autopilot Branding
 
-This repository contains a sample PowerShell script that can be packaged into an Intune Win32 app to customize Windows 10 devices via Windows Autopilot
-(although there's no reason it can't be used with other deployment processes, e.g. MDT or ConfigMgr).
+PowerShell-based branding and baseline customization package for Windows Autopilot deployments, designed to be delivered as a Microsoft Intune Win32 app.
 
-## Capabilities
+This repo supports Windows 10 and Windows 11 scenarios and is intended for OOBE/ESP-time execution in System context.
 
-These customizations are currently supported:
+## What this package does
 
-- Customize start menu layout.  By default it will apply a simple two-icon layout (similiar to the default one on Windows 10 Enterprise 1903).
-- Configure background image.  A custom theme is deployed with a background image; the default user profile is then configured to use this theme.  (Note that this won't work if the user is enabled for Enterprise State Roaming and has previously configured a background image.)
-- Set time zone.  The time zone will be set to the specified time zone name (Pacific Standard Time by default).
-- Remove in-box provisioned apps.  A list of in-box provisioned apps will be removed.
-- Install updated OneDrive client per-machine.  To support the latest OneDrive features, the client will be updated and installed per-machine (instead of the per-user default).
-- Disable the Edge desktop icon.  When using OneDrive Known Folder Move, this can cause duplicate (and unnecessary) shortcuts to be synced.
-- Install language packs.  You can embed language pack CAB files into the MSI (place them into the LPs folder), and each will be automatically installed.  (In a perfect world, these would be pulled from Windows Update, but there's no simple way to do that, hence the need to include these in the MSI.  You can download the language pack ISO from MSDN or VLSC.)
-- Install features on demand (FOD).  Specify a list of features that you want to install, from the list at https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/features-on-demand-non-language-fod.  The needed components will be downloaded from Windows Update automatically and added to the running OS.
-- Remove features on demand (FOD). Specify a list of preinstalled Features on Demand to remove by their Capability Name, excluding the tilde characters and version number. Capability Names can be retrieved by running  `Get-WindowsCapability -Online` 
-- Disable Optional Features. Specify a list of optional features to disable by per their Feature Name. Feature Names can be retrieved by running  `Get-WindowsOptionalFeature -Online`
-- Configure language settings.  Adding a language pack isn't enough - you have to tell Windows that you want it to be configured for all users.  This is done through an XML file fed to INTL.CPL; customize the file as needed.  (Note this is commented out by default in the Config.xml file.)
-- Configure default apps.  Import a list of file associations (as created by manually configuring the associations that you want and then using "DISM /Online /Export-DefaultAppAssociations:C:\Associations.xml" to export those settings) that should replace the default app associations.  (Note that even though an example is included from a customized Windows 10 1903 image, making IE 11 the default browser, you should replace this file with your own exported version.  Also, do not edit the file that you exported, e.g. to remove entries that you didn't change.)
+The main script can apply a subset of the following (controlled in `AutopilotBranding/Config.xml`):
 
-## Requirements and Dependencies
+- Start menu and taskbar defaults.
+- Desktop wallpaper and lock screen branding.
+- Time zone and selected device defaults.
+- Removal of selected in-box/provisioned apps.
+- OneDrive machine-wide installer update.
+- Optional language/config association artifacts.
 
-This uses the Microsoft Win32 Content Prep Tool (a.k.a. IntuneWinAppUtil.exe, available from https://github.com/Microsoft/Microsoft-Win32-Content-Prep-Tool) to package the PowerShell script and related files into a .intunewin file that can be uploaded to Intune as a Win32 app. 
+Most optional or advanced actions are intentionally disabled/commented by default for safer production rollout.
 
-## Building
+## Repository structure
 
-Run the makeapp.cmd file from a command prompt.  (It will not work if you using Terminal.)
+- `AutopilotBranding/AutopilotBranding.ps1` - Main script invoked during deployment.
+- `AutopilotBranding/Config.xml` - Feature flags and settings.
+- `AutopilotBranding/Intune/Install-AutopilotBranding.ps1` - Intune Win32 install entrypoint.
+- `AutopilotBranding/Intune/Uninstall-AutopilotBranding.ps1` - Intune Win32 uninstall entrypoint.
+- `AutopilotBranding/Intune/Detect-AutopilotBranding.ps1` - Intune detection script.
+- `makeapp.cmd` / `makeapp.ps1` - Build `.intunewin` package.
+- `docs/INTUNE-DEPLOYMENT.md` - Extended deployment runbook.
 
-## Using
+## Prerequisites
 
-Add the resulting Win32 app (.intunewin) to Intune.  The installation command line should be:
+- Intune admin permissions to create/update Win32 apps.
+- Autopilot enrollment profile and target device groups already in place.
+- Packaging host with PowerShell 7+ and internet access to PSGallery.
+- Review and customize `AutopilotBranding/Config.xml` before packaging.
 
-powershell.exe -noprofile -executionpolicy bypass -file .\AutopilotBranding.ps1
+## Production quick start
 
-The uninstall command line should be:
+1. **Customize**
+	- Update `AutopilotBranding/Config.xml`.
+	- Replace assets as needed (`Autopilot.jpg`, `AutopilotLock.jpg`, `Autopilot.theme`, layout files).
+2. **Build package**
+	- Run `makeapp.cmd` from repo root.
+	- Output file: `AutopilotBranding.intunewin`.
+3. **Create Intune Win32 app**
+	- App type: Windows app (Win32).
+	- Upload `AutopilotBranding.intunewin`.
+4. **Set program commands**
+	- Install:
+	  - `%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Intune\Install-AutopilotBranding.ps1`
+	- Uninstall:
+	  - `%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Intune\Uninstall-AutopilotBranding.ps1`
+	- Install behavior: **System**.
+5. **Configure detection**
+	- Preferred: custom detection script `Intune\Detect-AutopilotBranding.ps1`.
+	- Alternative: file exists at `%ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag`.
+6. **Assign safely**
+	- Deploy to device groups in rings: Lab -> Pilot -> Broad production.
+	- Keep ESP blocking list minimal and include this app only if required pre-sign-in.
 
-cmd.exe /c del %ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag
+## Runtime behavior
 
-The detection rule should look for the existence of this file:
+- Log file: `%ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.log`
+- Success marker: `%ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag`
+- Script returns non-zero on failure so Intune can retry/report correctly.
+- Script exits early outside OOBE unless run with `-Force`.
 
-Path: %ProgramData%\Microsoft\AutopilotBranding
-File or filder:  AutopilotBranding.ps1.tag
+## Validation checklist (before broad rollout)
 
-See https://oofhours.com/2020/05/18/two-for-one-updated-autopilot-branding-and-update-os-scripts/ for more information.
+- Validate on clean test devices matching production OS builds.
+- Confirm app install status in Intune is successful.
+- Verify branding artifacts and start/taskbar behavior for new users.
+- Confirm no unexpected reboot loops or long ESP delays.
+- Review local log file and Intune Management Extension logs for errors.
+
+## Rollback and update strategy
+
+- Keep versioned package releases and release notes.
+- Use Intune supersedence for upgrades.
+- Keep uninstall command available for emergency rollback.
+- Change one area at a time (layout, apps, theme, etc.) to reduce blast radius.
+
+## Security and operational best practices
+
+- Do not store credentials, secrets, or tenant-sensitive data in scripts or XML.
+- Keep scripts non-interactive and silent (required for OOBE/ESP reliability).
+- Prefer idempotent changes and stable detection markers.
+- Test any newly enabled commented sections before production use.
+
+## Troubleshooting
+
+- If detection fails, verify marker file creation at `%ProgramData%\Microsoft\AutopilotBranding`.
+- If script appears skipped, confirm whether the device had already completed OOBE.
+- If package fails to build, re-run `makeapp.cmd` from repo root and verify module download access.
+- If deployment is delayed, verify Intune assignment targeting and ESP configuration.
+
+## More detail
+
+- Extended runbook: `docs/INTUNE-DEPLOYMENT.md`
+- Release checklist: `docs/RELEASE-CHECKLIST.md`
+- Background article: https://oofhours.com/2020/05/18/two-for-one-updated-autopilot-branding-and-update-os-scripts/
 
 ## Change history
 
-- 2023-09-23: Added logic to handle the Windows 11 Start menu proces using Start2.bin; Windows 10 will continue to use Layout.xml.  Added additional Windows 11 in-box apps to remove.
-- 2024-01-31: Added additional apps to remove, adding timestamps to log messages, cleaned up error logging.
-- 2024-04-27: Added logic to stop the Start menu from popping up each time a new user signs in.
+- 2023-09-23: Added logic to handle the Windows 11 Start menu process using `Start2.bin`; Windows 10 continues to use `Layout.xml`.
+- 2024-01-31: Added additional apps to remove, timestamps in logging, and error logging cleanup.
+- 2024-04-27: Added logic to stop Start from popping up on first sign-in.
 - 2024-12-26: Added support for removing FODs and disabling optional features.
 
-## Suggestions?
+## Suggestions
 
-If you have suggestions on other customizations that would be useful, contact me at michael@oofhours.com.
+If you have suggestions on additional customizations, contact michael@oofhours.com.

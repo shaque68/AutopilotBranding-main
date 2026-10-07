@@ -75,17 +75,55 @@ function Check-NuGetProvider {
     
 }
 
+function Copy-RequiredFile {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)] [string] $Source,
+		[Parameter(Mandatory = $true)] [string] $Destination,
+		[Parameter(Mandatory = $true)] [string] $Description
+	)
+
+	if (-not (Test-Path -Path $Source)) {
+		throw "Required file for ${Description} not found: $Source"
+	}
+
+	Copy-Item -Path $Source -Destination $Destination -Force
+}
+
+function Download-File {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)] [string] $Url,
+		[Parameter(Mandatory = $true)] [string] $Destination,
+		[Parameter(Mandatory = $true)] [string] $Description
+	)
+
+	if (-not $Url) {
+		throw "No URL configured for $Description"
+	}
+
+	Log "Downloading ${Description}: $Url"
+	Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
+}
+
 # Get the Current start time in UTC format, so that Time Zone Changes don't affect total runtime calculation
 $startUtc = [datetime]::UtcNow
+$scriptSucceeded = $false
+$defaultUserHiveLoadedByScript = $false
+$didStartTranscript = $false
 
 # Don't show progress bar for Add-AppxPackage - there's a weird issue where the progress stays on the screen after the apps are installed
 $OriginalProgressPreference = $ProgressPreference
 $ProgressPreference = 'SilentlyContinue'
 
 # If we are running as a 32-bit process on an x64 system, re-launch as a 64-bit process
-if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64") {
+if ($env:PROCESSOR_ARCHITECTURE -eq "x86") {
 	if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe") {
-		& "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath"
+		$relaunchArgs = @("-ExecutionPolicy", "bypass", "-NoProfile", "-File", "$PSCommandPath")
+		if ($Force) {
+			$relaunchArgs += "-Force"
+		}
+		& "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" @relaunchArgs
 		Exit $lastexitcode
 	}
 }
@@ -97,9 +135,7 @@ if (-not (Test-Path "$($env:ProgramData)\Microsoft\AutopilotBranding")) {
 
 # Start logging
 Start-Transcript "$($env:ProgramData)\Microsoft\AutopilotBranding\AutopilotBranding.log"
-
-# Creating tag file
-Set-Content -Path "$($env:ProgramData)\Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag" -Value "Installed"
+$didStartTranscript = $true
 
 # STEP 0: Bail out if we aren't in OOBE
 $TypeDef = @"
@@ -117,14 +153,18 @@ namespace Api
  }
 }
 "@
-Add-Type -TypeDefinition $TypeDef -Language CSharp
+if (-not ("Api.Kernel32" -as [type])) {
+	Add-Type -TypeDefinition $TypeDef -Language CSharp
+}
 $IsOOBEComplete = $false
 $null = [Api.Kernel32]::OOBEComplete([ref] $IsOOBEComplete)
 if ($IsOOBEComplete) {
 	if (-not $Force)
 	{
 		Log "OOBE is completed, bailing out without doing any configuration."
-  		Stop-Transcript
+		if ($didStartTranscript) {
+			Stop-Transcript
+		}
 		exit 0
 	} else {
 		Log "OOBE is completed but -Force specified, will run anyway."
@@ -140,15 +180,23 @@ try
 	[Xml]$config = Get-Content "$($installFolder)Config.xml"
 
 	# PREP: Load the default user registry
-	Log "Loading Defualt User Registry Hive NTUSER.DAT"
-	reg.exe load HKLM\TempUser "C:\Users\Default\NTUSER.DAT" | Out-Null
+	Log "Loading Default User Registry Hive NTUSER.DAT"
+	if (-not (Test-Path "HKLM:\TempUser")) {
+		& reg.exe load HKLM\TempUser "C:\Users\Default\NTUSER.DAT" 2>&1 | Out-Null
+		if ($LASTEXITCODE -ne 0) {
+			throw "Failed to load default user hive HKLM\\TempUser."
+		}
+		$defaultUserHiveLoadedByScript = $true
+	} else {
+		Log "HKLM\\TempUser is already loaded; will continue without unloading it later."
+	}
 
 	# STEP 1: Apply a custom start menu and taskbar layout
 	$ci = Get-ComputerInfo
 	if ($ci.OsBuildNumber -le 22000) {
 		if ($config.Config.SkipStartLayout -ine "true") {
 			Log "Importing layout: $($installFolder)Layout.xml"
-			Copy-Item "$($installFolder)Layout.xml" "C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\LayoutModification.xml" -Force
+			Copy-RequiredFile -Source "$($installFolder)Layout.xml" -Destination "C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\LayoutModification.xml" -Description "Windows 10 Start layout"
 		} else {
 			Log "Skipping Start layout (Windows 10)"
 		}
@@ -156,10 +204,10 @@ try
 		if ($config.Config.SkipStartLayout -ine "true") {
 			Log "Copying Start menu layout: $($installFolder)Start2.bin"
 			MkDir -Path "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState" -Force -ErrorAction SilentlyContinue | Out-Null
-			Copy-Item "$($installFolder)Start2.bin" "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\Start2.bin" -Force
+			Copy-RequiredFile -Source "$($installFolder)Start2.bin" -Destination "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\Start2.bin" -Description "Windows 11 Start layout"
 			Log "Copying Start menu settings: $($installFolder)settings.dat"
 			MkDir -Path "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\Settings" -Force -ErrorAction SilentlyContinue | Out-Null
-			Copy-Item "$($installFolder)settings.dat" "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\Settings\settings.dat" -Force
+			Copy-RequiredFile -Source "$($installFolder)settings.dat" -Destination "C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\Settings\settings.dat" -Description "Windows 11 Start settings"
 		} else {
 			Log "Skipping Start layout (Windows 11)"
 		}
@@ -167,7 +215,7 @@ try
 		if ($config.Config.SkipTaskbarLayout -ine "true") {
 			Log "Importing Taskbar layout: $($installFolder)TaskbarLayoutModification.xml"
 			MkDir -Path "C:\Windows\OEM\" -Force -ErrorAction SilentlyContinue | Out-Null
-			Copy-Item "$($installFolder)TaskbarLayoutModification.xml" "C:\Windows\OEM\TaskbarLayoutModification.xml" -Force
+			Copy-RequiredFile -Source "$($installFolder)TaskbarLayoutModification.xml" -Destination "C:\Windows\OEM\TaskbarLayoutModification.xml" -Description "Windows 11 taskbar layout"
 			& reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v LayoutXMLPath /t REG_EXPAND_SZ /d "%SystemRoot%\OEM\TaskbarLayoutModification.xml" /f /reg:64 2>&1 | Out-Null
 			Log "Unpin the Microsoft Store app from the taskbar"
 			& reg.exe add "HKLM\TempUser\Software\Policies\Microsoft\Windows\Explorer" /v NoPinningStoreToTaskbar /t REG_DWORD /d 1 /f /reg:64 2>&1 | Out-Null
@@ -180,9 +228,9 @@ try
 	if ($config.Config.SkipTheme -ine "true") {
 		Log "Setting up Autopilot theme"
 		Mkdir "C:\Windows\Resources\OEM Themes" -Force | Out-Null
-		Copy-Item "$installFolder\Autopilot.theme" "C:\Windows\Resources\OEM Themes\Autopilot.theme" -Force
+		Copy-RequiredFile -Source "$installFolder\Autopilot.theme" -Destination "C:\Windows\Resources\OEM Themes\Autopilot.theme" -Description "Autopilot theme file"
 		Mkdir "C:\Windows\web\wallpaper\Autopilot" -Force | Out-Null
-		Copy-Item "$installFolder\Autopilot.jpg" "C:\Windows\web\wallpaper\Autopilot\Autopilot.jpg" -Force
+		Copy-RequiredFile -Source "$installFolder\Autopilot.jpg" -Destination "C:\Windows\web\wallpaper\Autopilot\Autopilot.jpg" -Description "Autopilot wallpaper"
 		Log "Setting Autopilot theme as the new user default"
 		& reg.exe add "HKLM\TempUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes" /v InstallTheme /t REG_EXPAND_SZ /d "%SystemRoot%\resources\OEM Themes\Autopilot.theme" /f /reg:64 2>&1 | Out-Null
 		& reg.exe add "HKLM\TempUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes" /v CurrentTheme /t REG_EXPAND_SZ /d "%SystemRoot%\resources\OEM Themes\Autopilot.theme" /f /reg:64 2>&1 | Out-Null
@@ -196,7 +244,7 @@ try
 		$RegPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP"
 		Mkdir "C:\Windows\web\wallpaper\Autopilot" -Force | Out-Null
 		$LockScreenImage = "C:\Windows\web\wallpaper\Autopilot\AutopilotLock.jpg"
-		Copy-Item "$installFolder\AutopilotLock.jpg" $LockScreenImage -Force
+		Copy-RequiredFile -Source "$installFolder\AutopilotLock.jpg" -Destination $LockScreenImage -Description "Autopilot lock screen image"
 		if (!(Test-Path -Path $RegPath)) {
 			New-Item -Path $RegPath -Force | Out-Null
 		}
@@ -305,14 +353,12 @@ try
 	if ($config.Config.OneDriveSetup) {
 	
 		$dest = "$($env:TEMP)\OneDriveSetup.exe"
-		$client = new-object System.Net.WebClient
 		if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
 			$url = $config.Config.OneDriveARMSetup
 		} else {
 			$url = $config.Config.OneDriveSetup
 		}
-		Log "Downloading OneDriveSetup: $url"
-		$client.DownloadFile($url, $dest)
+		Download-File -Url $url -Destination $dest -Description "OneDriveSetup"
 		Log "Installing: $dest"
 		$proc = Start-Process $dest -ArgumentList "/allusers /silent" -WindowStyle Hidden -PassThru
 		$proc.WaitForExit()
@@ -364,11 +410,9 @@ try
 	# STEP 8A: Attempt to Donwload and install Latest Edge for Business MSI from Evergreen URL
 	if ($config.Config.SkipEdgeUpdate -ine "true") {
 		
-		$client = new-object System.Net.WebClient
 		$dest = "$($env:TEMP)\MicrosoftEdgeEnterpriseX64.msi"
 		$url = $config.Config.EdgeBusinessMSI
-		Log "Downloading Latest Edge for Business: $url"
-		$client.DownloadFile($url, $dest)
+		Download-File -Url $url -Destination $dest -Description "Latest Edge for Business MSI"
 		
 		# Edge Version is buried in Comments of MSI. Parse the first 13 charaters to pull out Version number.
 		$shell = New-Object -ComObject Shell.Application
@@ -691,10 +735,21 @@ try
 	#	New-ItemProperty -Path $registryPath -Name "EnableFirstLogonAnimation" -Value 0 -PropertyType DWord -Force | Out-Null
 	#	New-ItemProperty -Path $registryPath -Name "DelayedDesktopSwitchTimeout" -Value 0 -PropertyType DWord -Force | Out-Null
 	#}
+	$scriptSucceeded = $true
 } catch {
 	Log "Unhandled exception: $_"
 } finally {
-Log "All Steps Completed"
+	if ($defaultUserHiveLoadedByScript) {
+		Log "Unloading Default User Registry hive"
+		[GC]::Collect()
+		& reg.exe unload HKLM\TempUser 2>&1 | Out-Null
+	}
+	if ($scriptSucceeded) {
+		Set-Content -Path "$($env:ProgramData)\Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag" -Value "Installed"
+		Log "All Steps Completed"
+	} else {
+		Log "Script failed before completion"
+	}
 }
 
 $stopUtc = [datetime]::UtcNow
@@ -714,4 +769,12 @@ Log 'Autopilot Branding Complete'
 Log "Total Script $($runTimeFormatted)"
 
 $ProgressPreference = $OriginalProgressPreference 
-Stop-Transcript
+if ($didStartTranscript) {
+	Stop-Transcript
+}
+
+if (-not $scriptSucceeded) {
+	exit 1
+}
+
+exit 0

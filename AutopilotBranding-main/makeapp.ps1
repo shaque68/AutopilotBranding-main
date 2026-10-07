@@ -5,6 +5,8 @@ param(
     [Parameter(Mandatory = $False)] [string] $OutputFolder = ""
 )
 
+$ErrorActionPreference = 'Stop'
+
 # Check NuGet version
 $MinimumVersion = [version]'2.8.5.201'
 $provider = Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue |
@@ -23,7 +25,12 @@ if (-not $provider) {
 }
 
 # Install and import the module to create the .intunewin file
-Install-Module SvRooij.ContentPrep.Cmdlet -MinimumVersion 0.4.0
+$moduleName = 'SvRooij.ContentPrep.Cmdlet'
+$module = Get-Module -ListAvailable -Name $moduleName | Sort-Object Version -Descending | Select-Object -First 1
+if (-not $module -or $module.Version -lt [version]'0.4.0') {
+    Write-Verbose "Installing module $moduleName..."
+    Install-Module -Name $moduleName -MinimumVersion 0.4.0 -Force -Scope CurrentUser -Repository PSGallery -AllowClobber
+}
 Import-Module SvRooij.ContentPrep.Cmdlet
 
 # Create the .intunewin file
@@ -31,6 +38,6 @@ if ($OutputFolder -eq "") {
     $OutputFolder = $PSScriptRoot
 }
 if (Test-Path "$OutputFolder\AutopilotBranding.intunewin") {
-    Remove-Item "$OutputFolder\AutopilotBranding.intunewin"
+    Remove-Item "$OutputFolder\AutopilotBranding.intunewin" -Force
 }
 New-IntuneWinPackage -SourcePath $SourceFolder -SetupFile $SetupFile -DestinationPath $OutputFolder
