@@ -45,11 +45,12 @@ param (
 function Log() {
 	[CmdletBinding()]
 	param (
-		[Parameter(Mandatory = $false)] [String] $message
+		[Parameter(Mandatory = $false)] [String] $message,
+		[Parameter(Mandatory = $false)] [ValidateSet('INFO', 'WARN', 'ERROR')] [String] $Level = 'INFO'
 	)
 
 	$ts = get-date -f "yyyy/MM/dd hh:mm:ss tt"
-	Write-Output "$ts $message"
+	Write-Output "[$Level] $ts $message"
 }
 
 

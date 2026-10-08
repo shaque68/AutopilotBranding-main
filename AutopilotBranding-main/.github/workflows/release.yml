@@ -1,0 +1,62 @@
+name: Build Release Package
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate PowerShell scripts
+        shell: powershell
+        run: |
+          $files = Get-ChildItem -Path . -Recurse -Filter *.ps1 | Select-Object -ExpandProperty FullName
+          foreach ($f in $files) {
+            $tokens = $null
+            $errs = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($f, [ref]$tokens, [ref]$errs)
+            if ($errs -and $errs.Count -gt 0) {
+              Write-Error "Parse errors in $f"
+              $errs | ForEach-Object { Write-Error "  $($_.Message)" }
+              exit 1
+            } else {
+              Write-Output "✓ $f"
+            }
+          }
+
+      - name: Build package
+        shell: cmd
+        run: makeapp.cmd
+
+      - name: Verify package
+        shell: powershell
+        run: |
+          $package = Get-Item -Path "AutopilotBranding.intunewin"
+          if (-not $package) {
+            throw "Package file not found"
+          }
+          Write-Output "✓ Package built successfully: $($package.FullName) ($([math]::Round($package.Length / 1MB, 2)) MB)"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: AutopilotBranding.intunewin
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutopilotBranding-${{ github.ref_name }}
+          path: AutopilotBranding.intunewin

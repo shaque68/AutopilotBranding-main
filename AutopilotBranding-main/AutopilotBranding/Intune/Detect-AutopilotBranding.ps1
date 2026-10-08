@@ -1,10 +1,19 @@
 [CmdletBinding()]
 param()
 
-$tagFile = Join-Path $env:ProgramData 'Microsoft\AutopilotBranding\AutopilotBranding.ps1.tag'
-if (Test-Path -Path $tagFile) {
-    Write-Output 'Installed'
-    exit 0
+$expectedVersion = '3.3.1'
+$tagDir = Join-Path $env:ProgramData 'Microsoft\AutopilotBranding'
+$versionFile = Join-Path $tagDir 'AutopilotBranding.version'
+
+if (Test-Path -Path $versionFile) {
+    $installedVersion = Get-Content -Path $versionFile -ErrorAction SilentlyContinue
+    if ($installedVersion -eq $expectedVersion) {
+        Write-Output "Installed (v${installedVersion})"
+        exit 0
+    } else {
+        Write-Output "Version mismatch: installed v${installedVersion}, expected v${expectedVersion}"
+        exit 1
+    }
 }
 
 exit 1

@@ -56,10 +56,12 @@ Preferred:
 
 Script returns:
 
-- `0` and `Installed` when marker exists
-- `1` when not installed
+- `0` and version string (e.g., `Installed (v3.3.1)`) when marker and version file exist and match expected version
+- `1` when not installed or version mismatch
 
-Alternative:
+Version mismatch triggers Intune to treat the app as needing remediation/upgrade. This prevents stale versions and improves supersedence reliability.
+
+Alternative (not recommended for production):
 
 - File detection path: `%ProgramData%\Microsoft\AutopilotBranding`
 - File name: `AutopilotBranding.ps1.tag`
@@ -91,9 +93,22 @@ Runtime logs:
 - Keep changes idempotent to support retry behavior.
 - Do not force restarts from script unless explicitly required.
 
+## Version tracking
+
+Each release writes its version to `%ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.version`.
+
+The detection script validates this version matches the package version. If versions don't match, Intune treats the app as needing re-deployment, which is critical for:
+
+- Automatic supersedence when updating the package
+- Preventing version skew during group rollouts
+- Reliable rollback detection
+
+Always ensure the version in `Install-AutopilotBranding.ps1` and `Detect-AutopilotBranding.ps1` match the package release version.
+
 ## Troubleshooting quick checks
 
-- No detection: check marker file exists in `%ProgramData%\Microsoft\AutopilotBranding`.
+- Detection reports version mismatch: ensure Install and Detect scripts have matching version numbers.
+- No detection: check both marker and version files exist in `%ProgramData%\Microsoft\AutopilotBranding`.
 - Script skipped: verify whether OOBE was already complete.
 - Build failure: verify PSGallery/module access from packaging host.
 - Deployment delay: check assignment targeting and ESP configuration.

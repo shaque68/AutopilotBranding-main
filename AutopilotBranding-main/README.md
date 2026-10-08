@@ -38,9 +38,11 @@ Most optional or advanced actions are intentionally disabled/commented by defaul
 
 1. **Customize**
 	- Update `AutopilotBranding/Config.xml`.
+	- Update script version in `AutopilotBranding/AutopilotBranding.ps1` (`.VERSION` field only; Intune wrapper versions sync automatically).
 	- Replace assets as needed (`Autopilot.jpg`, `AutopilotLock.jpg`, `Autopilot.theme`, layout files).
 2. **Build package**
 	- Run `makeapp.cmd` from repo root.
+	- The build script automatically syncs the version from the main script to Intune wrappers.
 	- Output file: `AutopilotBranding.intunewin`.
 3. **Create Intune Win32 app**
 	- App type: Windows app (Win32).
@@ -79,6 +81,43 @@ Most optional or advanced actions are intentionally disabled/commented by defaul
 - Use Intune supersedence for upgrades.
 - Keep uninstall command available for emergency rollback.
 - Change one area at a time (layout, apps, theme, etc.) to reduce blast radius.
+
+## Automated releases (GitHub Actions)
+
+Push a version tag to trigger an automated build and release:
+
+```powershell
+git tag v3.3.2
+git push origin v3.3.2
+```
+
+The GitHub Actions workflow will:
+- Validate all PowerShell scripts for syntax errors
+- Run `makeapp.cmd` to build the package
+- Create a GitHub Release with the `.intunewin` file attached
+- Make the package available for download
+
+Tags must follow semantic versioning: `v[major].[minor].[patch]` (e.g., `v3.3.2`).
+
+## Logging
+
+Runtime logs are written to `%ProgramData%\Microsoft\AutopilotBranding\AutopilotBranding.log`.
+
+Log entries include timestamps and log levels:
+
+- `[INFO]` - Informational messages (default)
+- `[WARN]` - Warnings that may indicate issues
+- `[ERROR]` - Errors (script continues if possible)
+
+Example log output:
+
+```
+[INFO] 2026/10/08 10:30:45 AM Install folder: C:\Windows\ccmcache\2a\...
+[INFO] 2026/10/08 10:30:45 AM Loading configuration: ...Config.xml
+[INFO] 2026/10/08 10:30:46 AM Importing layout: ...Layout.xml
+[WARN] 2026/10/08 10:30:47 AM UCPD driver may active
+[INFO] 2026/10/08 10:30:48 AM All Steps Completed
+```
 
 ## Security and operational best practices
 
